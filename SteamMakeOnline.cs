@@ -19,13 +19,13 @@ namespace SteamMakeOnline
     }
     public class SteamMakeOnline
     {
-        public event EventHandler<Account> OnHasDisconnected;
+        public Action OnFailure;
 
-        private readonly Account _account;
+        public Account Account { get; private set; }
 
         public SteamMakeOnline(Account account)
         {
-            _account = account;
+            Account = account;
         }
 
         SteamClient _steamClient;
@@ -40,11 +40,7 @@ namespace SteamMakeOnline
         public void Init(EPersonaState personaState)
         {
             _personaState = personaState;
-            SteamLogIn();
-        }
 
-        void SteamLogIn()
-        {
             _steamClient = new SteamClient();
             _callbackManager = new CallbackManager(_steamClient);
             _steamUser = _steamClient.GetHandler<SteamUser>();
@@ -54,7 +50,12 @@ namespace SteamMakeOnline
             _callbackManager.Subscribe<SteamClient.DisconnectedCallback>(OnDisconnected);
             _callbackManager.Subscribe<SteamUser.LoggedOnCallback>(OnLoggedOn);
             _callbackManager.Subscribe<SteamUser.AccountInfoCallback>(OnAccountInfo);
+            
+            SteamLogIn();
+        }
 
+        public void SteamLogIn()
+        {
             _isRunning = true;
 
             _steamClient.Connect();
@@ -69,28 +70,36 @@ namespace SteamMakeOnline
         {
             _steamUser.LogOn(new SteamUser.LogOnDetails
             {
-                Username = _account.Username,
-                Password = _account.Password,
-                TwoFactorCode = _account.GuardCode
+                Username = Account.Username,
+                Password = Account.Password,
+                TwoFactorCode = Account.GuardCode
             });
         }
-        void OnDisconnected(SteamClient.DisconnectedCallback callback)
+        async void OnDisconnected(SteamClient.DisconnectedCallback callback)
         {
-            OnHasDisconnected?.Invoke(this, _account);
+            _isRunning = false;
+            await Task.Delay(TimeSpan.FromSeconds(5));
+
+            Failure();
         }
         void OnLoggedOn(SteamUser.LoggedOnCallback callback)
         {
             if (callback.Result != EResult.OK)
             {
                 Console.WriteLine($"Unable to log in to Steam: {callback.Result}\n");
-                _isRunning = false;
+                _steamClient.Disconnect();
                 return;
             }
-            Console.WriteLine($"{_account.Username} successfully logged in!");
+            Console.WriteLine($"{Account.Username} successfully logged in!");
         }
         void OnAccountInfo(SteamUser.AccountInfoCallback callback)
         {
             _steamFriends.SetPersonaState(_personaState);
+        }
+
+        void Failure()
+        {
+            OnFailure?.Invoke();
         }
     }
 }
