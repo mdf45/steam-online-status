@@ -20,6 +20,7 @@ namespace SteamMakeOnline
     public class SteamMakeOnline
     {
         public Action OnFailure;
+        public Action OnSuccessfulLogin;
 
         public Account Account { get; private set; }
 
@@ -86,11 +87,10 @@ namespace SteamMakeOnline
         {
             if (callback.Result != EResult.OK)
             {
-                Console.WriteLine($"Unable to log in to Steam: {callback.Result}\n");
                 _steamClient.Disconnect();
                 return;
             }
-            Console.WriteLine($"{Account.Username} successfully logged in!");
+            OnSuccessfulLogin?.Invoke();
         }
         void OnAccountInfo(SteamUser.AccountInfoCallback callback)
         {
